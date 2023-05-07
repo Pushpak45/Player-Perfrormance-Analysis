@@ -1,0 +1,825 @@
+---
+title: "Chicago Bulls: Best Five Starting Players Analysis"
+author: "Pushpak_Jalibili"
+date: "`r Sys.Date()`"
+output: html_document
+ 
+---
+
+
+
+
+
+### INTRODUCTION
+
+BasketBall, game played between two teams of five players each on rectangular court,usually indoors. Each team tries to score by tossing the ball through opponets goal, an elevated horizontal loop and net called a basket.
+
+The Objective of the game is to score more points than the opposing team by shooting the ball through opponent's basket.
+
+
+\n
+\n\n
+
+
+### Description of the Scenario \n
+As a data analyst for the Chicago Bulls, I have been given the task to find the best starting five players for the team for the upcoming NBA season, while keeping in mind the team's budget constraints. The team's poor performance in the previous season and limited budget make this task challenging, but with the help of data analysis, I hope to provide recommendations that will lead to a successful season for the team.
+
+To accomplish this task, I will need to gather data on player performance, including key metrics such as points, field goal percentage, rebounds, assists, steals, and blocks. I will also need to consider each player's position requirements and responsibilities, as outlined in the background information provided.
+
+Using R, I will filter and clean the data to include only players that the Chicago Bulls can afford within their budget. I will then use statistical analysis and machine learning techniques to identify the top players for each position and evaluate their potential contributions to the team's success. Finally, I will present my findings and recommendations in a reproducible data analysis project, complete with visualizations and an R Markdown report that can be easily shared with the general manager and other stakeholders.
+
+
+
+## Aim Of the Project 
+The aim of this project is to help the Chicago Bulls, a professional basketball team in the NBA, find the best starting five players within their budget constraints for the upcoming season. By analyzing player performance data and considering position requirements, the project aims to provide recommendations that will improve the team's chances of success on the court.
+
+
+## Justification and Importance 
+
+Performance Improvement: The Chicago Bulls placed 27th out of 30 teams in the previous NBA season. By strategically selecting the best starting players, the team has an opportunity to improve its performance and competitiveness in the upcoming season. This scenario allows the team to make data-driven decisions based on player performance and cost-effectiveness.
+
+Budget Optimization: With a budget of $118 million, ranked 26th out of 30 teams, the Chicago Bulls need to optimize their financial resources to build a well-rounded roster. This scenario ensures that the team's limited budget is allocated efficiently, allowing for the acquisition of talented players while staying within financial constraints
+
+Data-Driven Decision Making: Data analysis provides valuable insights and objective evaluation of player performance. By utilizing statistical metrics and value scores, the scenario enables the Chicago Bulls to make informed decisions based on empirical evidence rather than relying solely on subjective judgments or biases. This approach increases the likelihood of selecting players who can contribute positively to the team's performance.
+
+Overall, the justification and importance of this scenario lie in its potential to enhance team performance, optimize budget allocation, promote long-term planning, facilitate data-driven decision making, and ensure financial sustainability for the Chicago Bulls. By analyzing player data and making informed choices, the team can strive for improved results and create a stronger foundation for future success.
+
+
+
+# Data Collection 
+
+* Description Of Five Datasets which are used for Analyis.
+
+* Player Statistics 
+
+* Player Salaries
+
+* Team Statistics
+
+* Team payroll
+
+* Team Statistics_2
+
+
+[Click here to view the Data Description document](./Data_Description.pdf)
+
+
+
+
+
+
+
+
+
+
+
+# Data Preparation.
+
+I began by loading the necessary data into R and performing some initial data cleaning steps. This involved removing any missing values, Renaming Variables , and selecting the relevant variables for analysis
+
+
+**Loading Libraries** 
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(car)
+library(corrplot)
+library(broom)
+```
+
+
+
+```{r}
+player_stats <- read_csv("data/2018-19_nba_player-statistics.csv",show_col_types = FALSE)
+team_stats_1 <- read_csv("data/2018-19_nba_team-statistics_1.csv",show_col_types = FALSE)
+team_stats_2 <- read_csv("data/2018-19_nba_team-statistics_2.csv",show_col_types = FALSE)
+salary <- read_csv("data/2018-19_nba_player-salaries.csv",show_col_types = FALSE)
+payroll <- read_csv("data/2019-20_nba_team-payroll.csv",show_col_types = FALSE)
+```
+
+
+
+**Structue and Dimensions of Data **
+
+```{r}
+str(player_stats)
+dim(player_stats)
+
+```
+
+
+
+**Dealing With Missing Values**
+
+Dealing with missing values are most important aspect in Data Analysis,The reason to missing values is may be data 
+is not recorded.
+Dealing: If the Variable have More than 90% missing values i am excluding it.
+In this method, missing values are replaced with the mean or mode of the non-missing values for that variable. While this method is simple, it assumes that the missing values are missing at random.
+
+```{r}
+player_stats%>% summarise_all(funs(sum(is.na(.)))) %>% 
+  gather() %>% filter(value > 0)
+
+player_stats <- player_stats %>% mutate_if(is.numeric, function(x) ifelse(is.na(x), median(x, na.rm = T), x))
+
+head(player_stats)
+
+
+```
+
+
+
+
+Sepertaing rows , hence here the posotion of player having two position , by using seperate rows function i am dividing into two rows.
+
+```{r}
+player_stats$Pos <- as.factor(player_stats$Pos)
+
+
+
+player_stats <- separate_rows(player_stats,Pos,sep='-')
+
+head(player_stats)
+```
+
+
+
+
+
+**Renaming The Coloumn Names Appropriately**
+
+
+```{r}
+
+player_stats <- rename(player_stats,
+                       Position=Pos,
+                       Team=Tm,
+                       Games=G,
+                       Games_started=GS,
+                       Minutes_playerd=MP,
+                       Field_Goal=FG,
+                       Field_Goal_per='FG%',
+                       Free_Throw=FT,
+                       Off_Rebound=ORB,
+                       Def_Rebound=DRB,
+                       Assists=AST,
+                       Steals=STL,
+                       Blocks=BLK,
+                       Total_Rebounds=TRB,
+                       P_Fouls=PF,
+                       Turn_Over=TOV,
+                       Points=PTS)
+
+player_stats <- rename(player_stats,Three_point_per='3P%',
+                       Two_point_per='2P%',
+                       Effective_goal_per='eFG%',
+                       Free_throw_per='FT%')
+  
+```
+
+
+
+
+**Exploratroy Analysis **
+
+
+
+**Statistical Summary**
+
+```{r}
+summary(player_stats)
+```
+
+
+**Feature Engineering**
+Add New columns Based on Our Requirement.
+
+```{r}
+
+player_stats <- player_stats %>% mutate(Free_Thro_miss=FTA-Free_Throw,
+                                        Field_Goal_miss=FGA-Field_Goal)
+player_stats <- player_stats %>% mutate(Points_per_game=round(Points/Games,2),
+                                        Assits_per_game=round(Assists/Games,2),
+                                        Steal_per_game=round(Steals/Games,2),
+                                        Block_per_game=round(Blocks/Games,2)
+                                        )
+
+
+
+
+                                        
+
+```
+
+These lines of code introduce new columns in the "player_stats" dataset to provide additional information such as missed free throws, missed field goals, points per game, assists per game, steals per game, and blocks per game for each player.
+
+
+
+
+ **NBA EFFICIENCY **
+EFF” in basketball stands for player efficiency. It is a total performance statistic that attempts to measure a player’s performance above the number of points produced.
+
+It is an addition of positive actions (points, rebounds, assists, steals, and blocks) minus negative actions (missed field goals, missed free throws, and turnovers).
+
+[Click here to view the More Detail About Efficiency](https://en.wikipedia.org/wiki/Efficiency_(basketball)
+
+```{r}
+player_stats <- player_stats %>% mutate(Efficiency=Points+Assists+Steals+Total_Rebounds+Blocks-
+                                        Free_Thro_miss-Field_Goal_miss-Turn_Over)
+
+
+player_stats <- player_stats %>% mutate(Efficiency_Per_Game=Efficiency/Games)
+```
+
+
+
+
+
+```{r}
+Player_Stats_Data <- player_stats %>% filter(Games>15) %>% arrange(desc(Efficiency_Per_Game))
+head(Player_Stats_Data)
+```
+
+Reason Behind Minmimu Requirment :
+Players who have played more games are likely to have a more consistent performance. Including only those players who have played a sufficient number of games helps to avoid including outliers or players who may have performed exceptionally well or poorly in just a few games.
+
+Long-term performance evaluation: Including players with a minimum threshold of games allows for a better assessment of their long-term performance. It provides a more comprehensive picture of their abilities and effectiveness over a larger time period.
+
+
+
+
+#Distrubution Of Variables
+
+#Position
+```{r}
+ggplot(Player_Stats_Data, aes(x = Position,fill=Position)) +
+  geom_bar()+ggtitle("Position COunt")
+```
+
+
+**Graph Analysis**:The resulting graph will show the frequency of each Position in the dataset, with each position represented by a different color bar. The height of each bar represents the count of players in that position. This graph can be used to identify the most common positions in the dataset and can be helpful in making decisions related to team composition or player recruitment
+
+
+
+**Age Distribution**
+```{r}
+ggplot(data = Player_Stats_Data) +
+ geom_histogram(mapping = aes(x = Age), colour = "black", fill = "dodgerblue",binwidth = 3)+
+  ggtitle("Distribution of Age")
+```
+
+Graph Analysis:The resulting graph will show the distribution of ages in the dataset, with the x-axis representing the age range and the y-axis representing the frequency of each age range. This graph can be used to identify the age distribution of players in the dataset and can be helpful in making decisions related to team composition or player recruitment
+
+
+
+**Distrubtion Of Field_goal_percentage**
+
+```{r}
+ggplot(Player_Stats_Data)+geom_histogram(aes(x=Field_Goal_per),colour = "black", fill = "green",binwidth = 0.19)+
+  xlab("Field Goal Percentage")+ggtitle("Distrubtion Of Field_goal_percentage")
+```
+Graph Analysis:This graph can be used to identify the distribution of player's shooting ability and help in making decisions related to player selection,
+
+
+
+
+```{r}
+ggplot(Player_Stats_Data)+geom_histogram(aes(x=Blocks),colour = "black", fill = "blue",binwidth = 15)+
+  xlab("Blocks") +ggtitle("Defense Distribution")
+```
+Graph Analysis:This graph can be used to identify the distribution of player's defensive ability.
+
+
+```{r}
+ggplot(player_stats)+geom_histogram(aes(x=Steals),colour = "black", fill = "blue",binwidth = 15)+
+  xlab("Steals")
+
+```
+**Graph Analsyis **The resulting graph will show the distribution of steals in the dataset.This graph can be used to identify the distribution of player's defensive ability.The Histogram Skewed to right, indicates that with few players had less number of assists.
+
+
+##Distribution OF Assists.
+
+```{r}
+ggplot(player_stats)+geom_histogram(aes(x=Assists),colour = "black", fill = "blue",binwidth = 50)+
+  xlab("Assits")
+```
+Graph Analysis :The histogram is skewed to the right, with a long tail indicating that a few players had a high number of assists. The majority of players had fewer than 200 assists
+
+
+```{r}
+ggplot(player_stats)+geom_histogram(aes(x=Points),colour = "black", fill = "pink",binwidth = 100)+
+  xlab("Points")
+```
+
+Graph Analysis: The Histogram is skewed to the right , it indicates that more player lies between 0-1000 points its completely depends on th matches they played.
+
+
+
+
+
+
+```{r}
+ggplot(player_stats) +
+ geom_histogram(aes(x = Points, fill = Position), colour = "black",binwidth = 150) +
+ facet_wrap(~Position, nrow = 3) # create by Position
+```
+
+Graph Analysis: Distribution of Points Based on Position.Poisition SG has More number of Points when Compared to Other Positions.
+
+
+
+
+
+```{r}
+ggplot(data = Player_Stats_Data) +
+  geom_boxplot(mapping = aes(x =Position, y = Field_Goal_per, colour = Position))
+
+```
+
+
+**Graph Analysis**
+
+
+
+
+```{r}
+ ggplot(data = Player_Stats_Data) +
+  geom_boxplot(mapping = aes(x =Position, y = Assists, colour = Position))
+```
+
+**Graph Analysis**
+Boxplot is between count of assists based on Position. Here, Few Outliers for each Position, The reason behind is Players played Extra Game. 
+
+
+
+
+
+
+```{r}
+ggplot(data = Player_Stats_Data) +
+  geom_boxplot(mapping = aes(x =Position, y = Steals, colour = Position))
+```
+
+
+```{r}
+ggplot(data = Player_Stats_Data) +
+  geom_boxplot(mapping = aes(x =Position, y = Blocks, colour = Position))
+```
+
+
+# Relationship Between Variables.
+
+
+```{r}
+ggplot(Player_Stats_Data, aes(x = Field_Goal_per, y = Points)) +
+  geom_point(color = "red", alpha = 0.5) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Field Goal Percentage vs. Points", x = "Field Goal Percentage", y = "Points") +
+  theme_minimal()
+```
+
+**Graph Analysis** 
+Field goals and points are positively associated, meaning that as the number of field goals increases, the total points scored also tend to increase. This positive relationship arises because each successful field goal contributes a certain number of points to the team's score. In basketball, for example, a made field goal typically counts for two or three points, depending on whether it is a two-point or three-point shot.
+\n
+
+Understanding this relationship can be valuable for analyzing player performance or team strategies. Monitoring field goals can provide insights into offensive effectiveness, shooting accuracy, and overall scoring ability. Additionally, analyzing the relationship between field goals and points can help identify players or teams with high scoring efficiency and contribute to strategic decision-making within the game.
+
+```{r}
+ggplot(Player_Stats_Data,mapping = aes(x = Games, y = Points)) +
+geom_point(alpha = 0.5, color = "blue") +
+geom_smooth(method = "lm", color = "red") +
+labs(title = "Relationship between Games Played and Points Scored",
+x = "Games Played",
+y = "Points Scored") +
+theme_bw()
+```
+
+**Graph Analysis**The graph shows the relationship between the number of games played and the total points scored by each player in the NBA.The line of best fit indicates a positive relationship between the number of games played and total points scored. The slope of the line indicates that on average, players score approximately 19.5 points per game played.However, it is important to note that the relationship is not perfectly linear, and there is some variation in the data.
+
+
+
+
+```{r}
+ggplot(Player_Stats_Data,mapping = aes(x = Points, y = Efficiency_Per_Game)) +
+ geom_point(color = "red", size = 2.5) + geom_smooth(method = "lm", color = "blue", se = FALSE) +
+ xlab("Points ") + ylab("Efficiency Rating") + 
+ ggtitle("Relationship between Points and Efficiency Rating") +
+ theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+**Understandings**
+In summary, points scored by a player heavily influence their efficiency rating due to their direct contribution to offensive output and overall scoring ability. Points serve as a foundation for various statistical factors considered in efficiency rating calculations, making them a fundamental component when evaluating a player's overall performance and efficiency on the court. 
+There Is a Positive Correlation Between Points and Efficiency Per Game.
+
+
+```{r}
+
+ggplot(Player_Stats_Data,mapping = aes(x = Blocks, y = Efficiency_Per_Game)) +
+ geom_point(color = "blue", size = 2.5) + geom_smooth(method = "lm", color = "red", se = FALSE) +
+ xlab("Blocks ") + ylab("Efficiency Rating per Game") + 
+ ggtitle("Relationship between Blocksr and Efficiency Rating per Game") +
+ theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+*Graph Analysis*
+
+
+
+
+```{r}
+ggplot(Player_Stats_Data,mapping = aes(x = Total_Rebounds, y = Efficiency_Per_Game)) +
+ geom_point(color = "pink", size = 2.5) + geom_smooth(method = "lm", color = "red", se = FALSE) +
+ xlab("Total_Rebounds ") + ylab("Efficiency Rating") + 
+ ggtitle("Relationship between Total Rebounds and Efficiency Rating") +
+ theme(plot.title = element_text(hjust = 0.5))
+
+```
+**Graph Description**:
+Total rebounds and points are often positively related, indicating that players or teams who collect more rebounds tend to score more points.
+
+
+
+**Observation**
+
+Efficiency, Total Rebounds, points, assists, and blocks are important statistical categories in given Player data that provide insights into a player's overall performance and contribution to the team. 
+
+
+**Efficiency and Rebounds**: Efficiency and rebounds can be positively related. Players who excel in rebounding tend to have more opportunities to contribute offensively and defensively, resulting in a higher overall efficiency rating. Rebounds provide additional possessions for a team, leading to increased scoring opportunities and potential assists. Additionally, strong rebounding indicates active involvement in the game, which often translates to a higher level of overall efficiency.
+
+**Efficiency and Points**: Efficiency and points are positively correlated, as players who score more efficiently are likely to have a higher number of points. Efficient scorers capitalize on their scoring opportunities, converting a higher percentage of their field goal attempts and free throws. By making the most of their scoring chances, players can increase their overall efficiency while contributing significantly to their team's point production.
+
+**Efficiency and Assists**: Efficiency and assists can be positively related, as players who are efficient in their decision-making and passing are more likely to create scoring opportunities for their teammates. Effective passers with good court vision can identify open teammates, leading to high-percentage shots and assists. By making accurate and timely passes, players contribute to the overall offensive efficiency of the team, positively impacting their own efficiency rating.
+
+**Efficiency and Blocks**: Efficiency and blocks may have a positive relationship, especially on the defensive end. Players with shot-blocking ability can alter or reject opponents' shot attempts, providing a defensive advantage. By effectively defending the basket and deterring scoring opportunities, players can contribute to their team's defensive efficiency. Blocked shots often lead to turnovers, transition opportunities, and disrupted offensive plays, positively impacting a player's overall efficiency.
+
+
+**Steals and Blocks ** There is a positive association between Steals and blocks, indicating a correlation between the two variables. Both Steals and blocks are often related, . However, to reduce multicollinearity in the analysis, only Blocks will be considered in the model as the predictor variable. By focusing on Blocks alone, we can better isolate and analyze the specific impact of playmaking and defensive skills on the outcome of interest.
+
+
+
+
+
+
+Selecting Few Variables based on above analysis.
+
+```{r}
+Player_performance <- Player_Stats_Data %>% select(player_name,Position,
+                                                                 Games,Field_Goal_per,Three_point_per,
+                                                                 Two_point_per,Effective_goal_per,
+                                                                 Free_throw_per,
+                                                                 Points_per_game,
+                                                                 Assits_per_game,
+                                                                 Steal_per_game,
+                                                                 Block_per_game,
+                                                                 Assists,
+                                                                 Steals,
+                                                                 Blocks,
+                                                                 Total_Rebounds,
+                                                                 Points,
+                                                                 Efficiency_Per_Game)
+
+
+head(Player_performance)
+```
+
+
+
+
+**Plotting Correlation Matrix Visually **
+
+```{r}
+
+corr_data <- Player_performance %>% select(!c(player_name,Position))
+cor_matric <- cor(corr_data)
+corrplot(cor_matric,method = "circle", type = "upper", order = "hclust",
+         tl.col = "black", tl.srt = 45, tl.cex = 0.7)
+
+```
+
+
+# Player Evaluation Metrics
+ * To determine the best starting players, I used a combination of performance metrics .
+    * 1.Total_Rebounds:): Indicates a player's ability to secure rebounds.
+    * 2.Points:  A measure of a player's scoring ability.
+    * 3.Efficiency: A Mesaure of players Total Ability
+    * 4.Assists :  A Measure of passing Ability 
+    * 5.Blocks: A Measure of Players Defensive Ability
+
+
+
+
+# Data Modelling
+Data modeling, also known as statistical modeling or predictive modeling, involves the process of creating and analyzing mathematical models to understand and make predictions about a given dataset.
+
+**Aim**:In order to assess player ability, we applied linear regression on metrics derived from visualization data. The goal was to predict efficiency and compare the observed and predicted values. By doing so, we aimed to demonstrate that the given variables are effective indicators of player ability.
+
+After conducting data visualization, we identified specific metrics that appeared to be relevant in evaluating player performance. These metrics were used as independent variables in the linear regression model, while the efficiency metric served as the dependent variable.
+
+The linear regression model was trained using a subset of the data, with observed efficiency values as the target variable. The model estimated the coefficients for the independent variables, which allowed us to predict efficiency values for the remaining data points.
+
+To evaluate the model's performance, we compared the predicted efficiency values with the observed efficiency values. If the predicted values closely aligned with the observed values, it would provide evidence that the selected variables were indeed reliable indicators of player ability.
+
+By analyzing the results, if we find a strong correlation between the observed and predicted efficiency values, it would validate the effectiveness of the chosen variables in assessing player ability. A high degree of similarity between the observed and predicted values would support the conclusion that the identified metrics are valuable for evaluating player performance and determining their skill level.
+
+
+```{r}
+
+fit <- lm(data=Player_performance,Efficiency_Per_Game~Points+Total_Rebounds+Assists+Blocks)
+tidy(fit,conf.int=TRUE)
+```
+
+**The intercept (Intercept)**: The estimated intercept of the regression line is 3.577, indicating the predicted efficiency per game when all independent variables (Points, Total_Rebounds, Assists, and Blocks) are zero.
+
+*Points*: For every unit increase in Points, the predicted efficiency per game increases by 0.0052. The coefficient is statistically significant (p < 0.001), suggesting that Points has a significant positive impact on efficiency.\n
+
+*Total_Rebounds*: For every unit increase in Total_Rebounds, the predicted efficiency per game increases by 0.0137. The coefficient is statistically significant (p < 0.001), indicating that Total_Rebounds has a significant positive effect on efficiency.  
+
+
+*Assists*: For every unit increase in Assists, the predicted efficiency per game increases by 0.0083. The coefficient is statistically significant (p < 0.001), indicating that Assists have a significant positive influence on efficiency.  
+
+
+*Blocks*: The coefficient for Blocks is 0.0103, but it is not statistically significant (p = 0.127). This suggests that Blocks may not have a significant impact on efficiency, given the data available.
+
+
+
+
+```{r}
+summary(fit)
+```
+
+
+**Why Given Model is Good**
+
+*Residual Standard Error (RSE)*: The RSE is a measure of the average deviation of the observed values from the predicted values. In this model, the RSE is 2.812, indicating that, on average, the predicted efficiency per game deviates from the observed values by approximately 2.812 units.
+
+*Multiple R-squared*: The multiple R-squared value measures the proportion of the variance in the dependent variable (Efficiency_Per_Game) that can be explained by the independent variables (Points, Total_Rebounds, Assists, Blocks). In this model, the multiple R-squared is 0.7914, which means that approximately 79.14% of the variability in the efficiency per game can be explained by the independent variables.
+
+*F-statistic and p-value*: The F-statistic tests the overall significance of the linear regression model. In this case, the F-statistic is 527.4 with 4 and 556 degrees of freedom. The associated p-value is extremely small (p < 2.2e-16), indicating strong evidence to reject the null hypothesis that all the regression coefficients are zero. This suggests that the model, as a whole, is statistically significant in explaining the variability in the dependent variable.
+
+Taken together, the model exhibits a reasonably good fit to the data, as indicated by a relatively high multiple R-squared value and a low p-value for the overall model. 
+
+
+
+
+```{r}
+Player_performance$predicted <- predict(fit)
+Player_performance$predicted <- round(Player_performance$predicted,2)
+Player_performance <- Player_performance %>% arrange(desc(Player_performance$Efficiency_Per_Game))
+head(Player_performance)
+```
+
+**Plot Between Observed and Predicted**
+
+```{r}
+ggplot(Player_performance, aes(x = Efficiency_Per_Game, y = predicted)) + 
+  geom_point(color="blue") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  xlab("Observed Values") +
+  ylab("Predicted Values") +
+  ggtitle("Observed vs Predicted Values")
+```
+Observations:
+This will create a scatter plot with the observed values on the x-axis and the predicted values on the y-axis. The dashed line represents a 45-degree line, which indicates perfect prediction..
+
+
+
+
+```{r}
+
+player_stats_salary <- merge(Player_performance,salary,by="player_name")
+player_stats_salary <- player_stats_salary %>% arrange(desc(player_stats_salary$Efficiency_Per_Game))
+
+player_stats_salary <- player_stats_salary %>% mutate(Total_rebound_per_game=Total_Rebounds/Games)
+head(player_stats_salary)
+```
+
+
+
+```{r}
+Selected_data <- player_stats_salary %>% select(player_name,player_id,Position,
+                                                Three_point_per,Two_point_per,
+                                                Effective_goal_per,
+                                                Points_per_game,
+                                                Assits_per_game,
+                                                Total_rebound_per_game,
+                                                Efficiency_Per_Game,
+                                                salary)
+
+
+Selected_data <- Selected_data %>% mutate(Salary_in_millions=round(salary/1000000,2))
+head(Selected_data)
+
+```
+
+
+**Player Selection Process**
+ To identify the best starting players:
+  1.Sorted the players based on their value score in descending order.
+  2.Identified the top-ranked player from each position: 
+       + point guard (PG) 
+       + shooting guard (SG) 
+       + small forward (SF) 
+       + power forward (PF) 
+       + center (C).
+   3.Considered the players' Efficiency_per_game to make a final recommendation
+
+```{r}
+Total_Budget <- 118
+max_budget <- 0.70*118
+
+
+
+```
+
+
+
+
+
+**Findings and Recommendations**
+
+After analyzing the data and evaluating the players' performance and cost-effectiveness, the following players are recommended as the best five starting players for the Chicago Bulls in the 2019-20 season:
+
+```{r}
+head(Selected_data %>% filter(Salary_in_millions<max_budget ) %>% arrange(desc(Efficiency_Per_Game)),30)
+```
+
+```{r}
+Desired_df <- Selected_data %>% select(player_name,
+                                       Position,
+                                       Efficiency_Per_Game,
+                                       Salary_in_millions)
+head(Desired_df,30)
+```
+
+
+
+```{r}
+unique(Desired_df$Position)
+```
+
+**Player Pick For Position (PF)**
+
+```{r}
+head(Desired_df %>% filter(Position=="PF"),10)
+```
+Pick for PF
+* Position : PF
+* Player Name: Giannis Antetokounmpo  
+* Points_per_Game:27.69 
+* Assists_per_Game:5.89     
+* Rebound_Per_Game:12.47 
+* Efficiency:35.25000 
+* Salary_in_milions:24.16 
+
+**Justification**
+Giannis Antetokounmpo  (PF): Giannis Antetokounmpo  is recommended as the Point Forward  for the Chicago Bulls due to his strong performance in the 2018-19 season. He averaged 27.69 points, 12.4 rebounds, and 5.89 assists per game while having a salary of $24.16. With a Efficiency of 35.25 Which Highest among all player, Giannis provides a solid contribution to the team at a relatively Perfect salary with his shooting ability.
+
+
+
+
+**Player Pick For Position (sG)**
+
+```{r}
+head(Desired_df %>% filter(Position=="SG"),10)
+```
+
+* Position :SG
+* Devin Booker:Shooting Guard 
+* Points_per_Game:26.56 
+* Assists_per_Game:6.77
+* Rebound_Per_Game:4.140625 
+* Efficiency:23.01562 
+* Salary_in_millions:3.31 
+
+
+Total Budget we used till now is 27.47
+
+
+
+**Justification**
+Devin Booker:Devin Booker is suggested as the starting shooting guard for his impressive scoring ability. He averaged 26.56 points per game, along with 4.14 rebounds and 6.7 assists.His Salary is very low with outstanding efficiency per game. My pick for Shooting Guard is Devin Booker.
+
+
+
+```{r}
+head(Desired_df %>% filter(Position=="C"),10)
+```
+
+
+* Position :C
+* Player_name:Karl-Anthony Towns
+* Points_per_Game:24.42
+* Assists_per_Game:3.36 
+* Rebound_Per_Game:12.38 
+* Efficiency:30.3 
+* Salary_in_millions:7.84 
+
+
+
+
+
+**Justification**
+
+Karl-Anthony Towns, a Center (C), is a highly recommended player due to his exceptional performance in various statistical categories. With an impressive average of 24.42 Points per Game, he consistently provides a significant scoring contribution for his team. Towns' scoring ability is complemented by his average of 3.36 Assists per Game.
+
+In terms of salary, Towns' earnings of 7.84 million dollars reflect his value as a highly skilled and impactful player. Despite his significant contributions on the court, his salary remains relatively reasonable.
+
+In conclusion, Karl-Anthony Towns' remarkable scoring ability, playmaking skills, dominant rebounding, high efficiency, and reasonable salary make him a highly recommended player in the Center position.
+
+
+
+
+
+
+
+Total Budget we used till now is 35.31 
+
+
+
+```{r}
+head(Desired_df %>% filter(Position=="SF"),10)
+```
+
+* Position : SF
+* Player Name:Jimmy Butler
+* Points_per_Game:26.56 
+* Assists_per_Game:6.77
+* Rebound_Per_Game:4.140625 
+* Efficiency:23.01562 
+* Salary_in_millions:3.31 
+
+
+
+
+
+
+
+*Justification*
+Jimmy Butler, a Small Forward (SF), demonstrates outstanding performance in multiple statistical categories. With an impressive average of 26.56 Points per Game, he consistently provides a significant scoring impact for his team. In addition to his scoring prowess, Butler showcases excellent play making skills, averaging 6.77 Assists per Game.
+
+Jimmy Butler having scoring ability and passing ability,Considering his significant contributions on the court, it is notable that Butler's salary stands at 3.31 million dollars. This relatively modest salary in comparison to some other players in the league underscores the value he brings to his team. It showcases his ability to deliver exceptional performance while being a cost-effective option for the team's salary cap management.
+
+
+
+
+
+
+```{r}
+head(Desired_df %>% filter(Position=="PG"),10)
+```
+
+
+* Position :PG
+* Player Name: Kyrie Irving
+* Points_per_Game:26.56 
+* Assists_per_Game:6.77
+* Rebound_Per_Game:4.140625 
+* Efficiency:23.01562 
+* Salary_in_millions:3.31 
+
+
+**Justification**
+Kyrie Irving, a Point Guard (PG), demonstrates exceptional performance across multiple statistical categories. With an impressive average of 26.56 Points per Game, he consistently contributes significantly to his team's scoring efforts. Additionally, Irving showcases exceptional playmaking skills, as evidenced by his average of 6.77 Assists per Game.
+
+In terms of overall efficiency, Irving maintains an impressive Efficiency rating of 23.01562. This metric takes into account various factors, such as shooting percentages, turnovers, and other statistical contributions, providing a comprehensive assessment of a player's effectiveness on the court. Irving's high efficiency rating underscores his ability to make a significant impact and contribute positively to his team's success.
+
+Considering his outstanding performance, it is noteworthy that Irving's salary stands at 3.31 million dollars. This relatively modest salary compared to some other players in the league emphasizes the value that Irving brings to his team, making him an exceptionally valuable asset.
+
+
+
+
+
+**Summary:**
+
+* As a data analyst for the Chicago Bulls, my task was to identify the best five starting players for the team within a budget of $118 million for the upcoming 2019-20 NBA season. The team's performance in the previous season was ranked 27th out of 30 based on win-loss record, and the budget allocated for player contracts ranked 26th out of 30.
+
+* To address this task, I conducted a thorough analysis of player performance, taking into consideration their position, statistical performance, and cost-effectiveness. I aimed to find a balance between player skills, team needs, and financial constraints.
+
+* Using available data, I analyzed various factors such as points per game, assists per game, rebounds per game, efficiency ratings, and salaries of players from the previous season. 
+
+* By applying rigorous analysis and considering the specific requirements of each position, I identified the best players for the Chicago Bulls. The selection criteria included their performance, potential for improvement, and financial feasibility.
+
+
+* The knitr report generated through R Markdown presents a comprehensive overview of the analysis, highlighting the strengths, contributions, and potential value of the selected players. It also provides insights into how the chosen players align with the team's objectives and how their skills can positively impact the team's performance in the upcoming season.
+
+* The analysis aims to assist the general manager in making informed decisions regarding player selection and team budget allocation. By strategically choosing the best starting players within the given budget, the Chicago Bulls can enhance their chances of improving their ranking and achieving better performance in the upcoming NBA season.
+
+
+
+
+**References and Links**
+
+1.[Click here to view the More Detail About Efficiency](https://en.wikipedia.org/wiki/Efficiency_(basketball)
+2.[Nba Stats](https://www.nba.com/stats/players/shooting-efficiency)
+-: David Card,May 2011. An Analysis of On-Court Performance and Its Effects on
+Revenues,[https://www.econ.berkeley.edu/sites/default/files/li_harrison.pdf]
+
+-: Richard A Hofler a, James E Payne ,Measuring efficiency in the National Basketball Association,[https://www.sciencedirect.com/science/article/abs/pii/S0165176597000839]
